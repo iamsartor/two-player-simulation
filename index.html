@@ -1,0 +1,577 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Race Sim Duo</title>
+<meta name="robots" content="noindex, nofollow">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Race Sim Duo">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#eef0ec" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#111413" media="(prefers-color-scheme: dark)">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+/* Two phones, one race sim, no server. Both phones get the same workout and start time from a QR link
+   and work out the schedule from their own clock. */
+:root {
+  --bg: #eef0ec; --surface: #ffffff; --fg: #16191a; --muted: #5f6763; --line: #d3d8d3;
+  --accent: #1f6feb; --accent-fg: #ffffff; --press: #e3e7e2; --danger: #c2321f; --go: #e8457a; --rest: #0c8599;
+  --a: #1f6feb; --b: #d9480f;
+  --display: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --body: "Barlow", system-ui, -apple-system, "Segoe UI", sans-serif;
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+  --bg: #111413; --surface: #1b1f1e; --fg: #eef1ee; --muted: #9aa39f; --line: #2c3331;
+  --accent: #5b9dff; --accent-fg: #0b1220; --press: #262c2a; --danger: #ff6b55; --go: #f0507f; --rest: #3fc7dc;
+  --a: #5b9dff; --b: #ff8a4c; color-scheme: dark } }
+:root[data-theme="dark"] {
+  --bg: #111413; --surface: #1b1f1e; --fg: #eef1ee; --muted: #9aa39f; --line: #2c3331;
+  --accent: #5b9dff; --accent-fg: #0b1220; --press: #262c2a; --danger: #ff6b55; --go: #f0507f; --rest: #3fc7dc;
+  --a: #5b9dff; --b: #ff8a4c; color-scheme: dark }
+
+* { box-sizing: border-box; }
+html, body { background: var(--bg); }
+body { margin: 0; color: var(--fg); font-family: var(--body); font-size: 16px; -webkit-tap-highlight-color: transparent; }
+.wrap { max-width: 560px; margin: 0 auto; padding: max(12px, env(safe-area-inset-top)) 16px 40px; display: flex; flex-direction: column; gap: 16px; }
+button { font: inherit; color: inherit; cursor: pointer; border: 0; background: none; touch-action: manipulation; }
+button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+h1 { font-family: var(--display); font-weight: 800; font-size: 2rem; line-height: 1; margin: 0; text-transform: uppercase; letter-spacing: .01em; }
+h1 small { display: block; font-family: var(--body); font-weight: 600; font-size: .78rem; letter-spacing: .06em; color: var(--muted); margin-top: 4px; text-transform: none; }
+h2 { font-family: var(--display); font-weight: 800; font-size: 1.3rem; text-transform: uppercase; letter-spacing: .03em; margin: 0; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 16px; padding: 16px; display: flex; flex-direction: column; gap: 12px; }
+.note { color: var(--muted); font-size: .9rem; margin: 0; line-height: 1.4; }
+label.f { display: flex; flex-direction: column; gap: 6px; font-weight: 600; font-size: .9rem; }
+.row { display: flex; gap: 10px; flex-wrap: wrap; }
+.row > * { flex: 1 1 140px; }
+input, select, textarea { font: inherit; color: var(--fg); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; width: 100%; }
+textarea { min-height: 110px; font-family: ui-monospace, Menlo, monospace; font-size: .8rem; }
+.solid, .ghost { font-family: var(--display); font-weight: 800; font-size: 1.15rem; letter-spacing: .04em; text-transform: uppercase; padding: 12px 18px; border-radius: 12px; }
+.solid { background: var(--fg); color: var(--bg); }
+.solid.big { font-size: 1.6rem; padding: 18px; }
+.ghost { border: 2px solid var(--line); background: var(--surface); }
+.ghost.small { font-size: .95rem; padding: 8px 12px; }
+.danger { color: var(--danger); }
+.tools { display: flex; gap: 8px; flex-wrap: wrap; }
+.tools button { flex: 1 1 auto; }
+.who { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; }
+.dot { width: 12px; height: 12px; border-radius: 50%; background: var(--tc); flex: none; }
+[data-me="a"] { --tc: var(--a); } [data-me="b"] { --tc: var(--b); }
+.top { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; }
+.run-h1 { font-size: 1.35rem; }
+.clock { white-space: nowrap; font-family: var(--display); font-weight: 600; font-size: 1.1rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* The big Now box. Colour says what to do: go colour while working, teal while moving. */
+.now { border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 6px; background: var(--surface); border: 3px solid var(--tc); }
+.now.work { background: var(--go); border-color: var(--go); color: #fff; }
+.now.move { background: var(--rest); border-color: var(--rest); color: #fff; }
+.now .lbl { font-family: var(--display); font-weight: 800; letter-spacing: .08em; text-transform: uppercase; font-size: 1rem; opacity: .85; }
+.now .st { font-family: var(--display); font-weight: 800; font-size: clamp(2rem, 10vw, 3rem); line-height: 1; text-transform: uppercase; }
+.now .t { font-family: var(--display); font-weight: 800; font-size: clamp(4rem, 26vw, 7.5rem); line-height: .9; font-variant-numeric: tabular-nums; }
+.now .sub { font-weight: 600; opacity: .9; }
+.now.flash { animation: flash 1.2s ease-out 2; }
+@keyframes flash { 0% { filter: brightness(1.6); transform: scale(1.02); } 100% { filter: none; transform: none; } }
+@media (prefers-reduced-motion: reduce) { .now.flash { animation: none; outline: 4px solid var(--fg); } }
+.lines { display: flex; flex-direction: column; gap: 6px; }
+.line { display: flex; gap: 10px; align-items: baseline; }
+.line .l { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); width: 64px; flex: none; }
+.line b { font-weight: 600; }
+
+/* Counter */
+.counter { display: flex; flex-direction: column; gap: 10px; }
+.cval { font-family: var(--display); font-weight: 800; font-size: 4.2rem; line-height: 1; text-align: center; font-variant-numeric: tabular-nums; }
+.cval small { font-size: 1.2rem; color: var(--muted); margin-left: 6px; }
+.steps { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; }
+.steps button { font-family: var(--display); font-weight: 800; font-size: 1.5rem; padding: 18px 4px; border-radius: 14px; background: var(--tc); color: var(--accent-fg); }
+.steps button.undo { background: var(--press); color: var(--fg); font-size: 1.1rem; }
+
+/* Results table */
+table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 8px 6px; border-bottom: 1px solid var(--line); }
+th { font-family: var(--display); font-weight: 800; text-transform: uppercase; letter-spacing: .04em; font-size: .95rem; }
+td.n { text-align: right; } th.n { text-align: right; }
+td input { width: 84px; padding: 6px 8px; text-align: right; }
+tr.cur td { font-weight: 700; }
+
+/* Overlays: QR codes and the camera */
+.ov { position: fixed; inset: 0; background: var(--bg); z-index: 10; overflow: auto; }
+.ov .wrap { align-items: stretch; }
+.qrbox { background: #fff; border-radius: 16px; padding: 14px; display: flex; justify-content: center; }
+.qrbox canvas { width: min(100%, 420px); height: auto; image-rendering: pixelated; }
+video { width: 100%; border-radius: 16px; background: #000; aspect-ratio: 3 / 4; object-fit: cover; }
+.big-msg { font-family: var(--display); font-weight: 800; font-size: 1.6rem; text-transform: uppercase; text-align: center; }
+[hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<div class="wrap" id="app"></div>
+<div class="ov" id="ov" hidden><div class="wrap" id="ovBody"></div></div>
+<script src="vendor/qrcode.min.js"></script>
+<script>
+"use strict";
+// ---------------------------------------------------------------------------------------------------
+// How it works: the host phone (A) picks a workout and a start time. A QR code carries the workout, the
+// start time and both athletes' first stations as a link. Phone B opens the link and from then on both
+// phones compute the same schedule from their own clocks. Nothing is sent anywhere during the workout.
+// Optional clock check: A shows a QR with its own time, refreshed ~10x a second; B scans it in the app
+// and shifts its schedule by the difference. Results go back the same way: B shows a QR, A scans it.
+// ---------------------------------------------------------------------------------------------------
+
+const KEY = "race-sim-duo-v1";
+const $ = id => document.getElementById(id);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const fmt = s => { s = Math.max(0, Math.round(s)); return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; };
+const parseTime = v => { const m = /^\s*(\d{1,3}):([0-5]\d)\s*$/.exec(String(v ?? "")); return m ? +m[1] * 60 + +m[2] : null; };
+const UNIT_CODE = { meters: "m", lanes: "l", reps: "r", cals: "c" };
+const DEFAULT_STEPS = { meters: [10, 50, 100], lanes: [1, 2, 5], reps: [1, 5, 10], cals: [1, 5, 10], min: [1, 2, 3] };
+
+// Built-in workouts, the same as the club app's race sim library (times in seconds).
+const RUNS = n => ({ n: `Run ${n}`, u: "meters" });
+const STATIONS = [["Ski Ergometer", "meters"], ["Sled Push", "lanes"], ["Sled Pull", "lanes"], ["Burpee Broad Jumps", "lanes"],
+  ["Rowing Ergometer", "meters"], ["Farmers Carry", "lanes"], ["Sandbag Lunges", "lanes"], ["Wallballs", "reps"]];
+const raceList = (runTime, stTime) => STATIONS.flatMap(([n, u], i) => [{ ...RUNS(i + 1), t: runTime }, { n, u, t: stTime }]);
+const PRESETS = {
+  duo: { name: "Race Sim Duo (16 + cool down)", slot: 210, st: [...raceList(180, 180), { n: "Cool down", u: "min", t: 180 }] },
+  singles: { name: "Race Simulation (16)", slot: 210, st: raceList(0, 180) },
+};
+
+// ---- State (this phone only, in local storage) ----
+// s = { t: start (ms, the host's clock), w: workout, a/b: first station of A/B, na/nb: names, me: "a"|"b",
+//       off: how far this phone's clock is ahead of the host's (ms), mine: {station: count}, theirs: {..}|null,
+//       ended: true once someone tapped End, cur: station shown in the counter when not following the clock }
+let S = null;
+function load() { try { S = JSON.parse(localStorage.getItem(KEY) || "null"); } catch { S = null; } }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S)); } catch {} }
+const now = () => Date.now() - (S?.off || 0);
+
+// ---- Workout encoding for the link: short keys, steps only when they differ from the unit's default ----
+const b64u = str => btoa(unescape(encodeURIComponent(str))).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+const unb64u = str => decodeURIComponent(escape(atob(str.replace(/-/g, "+").replace(/_/g, "/"))));
+function packLink(s) {
+  // A built-in workout travels as its id and times only, which keeps the QR code small.
+  if (s.w.src) return linkOf({ v: 1, t: s.t, a: s.a, b: s.b, na: s.na, nb: s.nb, p: s.w.src });
+  // A pasted workout travels as one compact line per station, "name*unit*seconds*steps", so the QR stays readable.
+  const w = { n: s.w.name, s: s.w.slot, c: s.w.st.map(x => [x.n, UNIT_CODE[x.u] || x.u, x.t || "",
+    x.p && String(x.p) !== String(DEFAULT_STEPS[x.u]) ? x.p.join(",") : ""].join("*").replace(/\**$/, "")).join("|") };
+  return linkOf({ v: 1, t: s.t, a: s.a, b: s.b, na: s.na, nb: s.nb, w });
+}
+const linkOf = data => location.origin + location.pathname + "#j=" + b64u(JSON.stringify(data));
+function unpackLink(hash) {
+  const m = /[#&]j=([\w-]+)/.exec(hash); if (!m) return null;
+  try {
+    const d = JSON.parse(unb64u(m[1]));
+    if (d.v !== 1 || !Number.isFinite(d.t)) return null;
+    const base = { t: d.t, a: d.a | 0, b: d.b | 0, na: String(d.na || "A"), nb: String(d.nb || "B") };
+    if (d.p) { const w = presetWorkout(d.p.id, d.p.slot, d.p.work); return w ? { ...base, w } : null; }
+    if (!d.w || typeof d.w.c !== "string" || !d.w.c) return null;
+    const UNIT = Object.fromEntries(Object.entries(UNIT_CODE).map(([k, v]) => [v, k]));
+    return { ...base, w: { name: String(d.w.n || "Race sim"), slot: d.w.s | 0 || 210, st: d.w.c.split("|").map(line => {
+      const [n, u = "", t = "", p = ""] = line.split("*"), o = { n, u: UNIT[u] || u };
+      if (+t) o.t = +t; if (p) o.p = p.split(",").slice(0, 3).map(Number); return o; }) } };
+  } catch { return null; }
+}
+
+// Accepts a race sim from the club app's workout library (JSON) and turns it into {name, slot, st}.
+function fromClubJson(text) {
+  const j = JSON.parse(text);
+  const slot = parseTime(j.slot);
+  if (!slot) throw new Error("This workout has no \"slot\" (like \"3:30\"), so it isn't a race sim.");
+  if (!Array.isArray(j.stations) || j.stations.length < 2) throw new Error("A race sim needs at least two stations.");
+  const st = j.stations.map(x => {
+    const t = x.time ? parseTime(x.time) : 0;
+    if (t === null) throw new Error(`"${x.name}": time must look like "3:00".`);
+    return { n: String(x.name || "Station").replace(/[*|]/g, " "), u: String(x.unit || "reps").replace(/[*|]/g, " "), t: Math.min(t, slot),
+      p: Array.isArray(x.steps) && x.steps.length ? x.steps.slice(0, 3).map(Number) : undefined };
+  });
+  return { name: String(j.name || "Race sim"), slot, st };
+}
+
+// ---- The schedule. Everyone moves one station on every slot, in workout order, from their own first station. ----
+// Returns where athlete `who` is at time `ms` (host clock): slot number k, station index p, phase and seconds left.
+function where(s, who, ms) {
+  const N = s.w.st.length, slot = s.w.slot, el = (ms - s.t) / 1000, first = who === "a" ? s.a : s.b;
+  if (el < 0) return { phase: "wait", k: 0, p: first, left: -el };
+  const k = Math.floor(el / slot);
+  if (k >= N) return { phase: "done", k: N, p: (first + N - 1) % N, left: 0 };
+  const p = (first + k) % N, st = s.w.st[p], t = el - k * slot, work = st.t ? Math.min(st.t, slot) : slot;
+  const next = k < N - 1 ? s.w.st[(p + 1) % N].n : "Finish";
+  if (t >= work) return { phase: "move", k, p, left: slot - t, next };
+  return { phase: "work", k, p, left: work - t, next };
+}
+const total = w => w.slot * w.st.length;
+const other = me => me === "a" ? "b" : "a";
+const nameOf = (s, who) => who === "a" ? s.na : s.nb;
+const stepsOf = st => st.p || DEFAULT_STEPS[st.u] || [1, 5, 10];
+
+// ---- Setup screen (the host) ----
+let setup = { preset: "duo", custom: null, slot: "3:30", work: "3:00", a: 0, b: -1, na: "A", nb: "B", lead: 60, err: "" };
+// The work time applies to every entry that has one (the singles' runs fill the whole slot).
+function withTimes(base, slot, work) {
+  if (!base || !slot || slot < 10 || slot > 3600) return null;
+  return { name: base.name, slot, st: base.st.map(x => { const o = { ...x }; if (x.t) o.t = Math.min(work ?? x.t, slot); else delete o.t; if (!o.p) delete o.p; return o; }) };
+}
+function presetWorkout(id, slot, work) {
+  const w = PRESETS.hasOwnProperty(id) ? withTimes(PRESETS[id], slot | 0, work | 0) : null;
+  if (w) w.src = { id, slot: slot | 0, work: work | 0 };
+  return w;
+}
+function setupWorkout() {
+  const slot = parseTime(setup.slot), work = parseTime(setup.work);
+  if (!slot || work === null) return null;
+  return setup.preset === "custom" ? withTimes(setup.custom, slot, work) : presetWorkout(setup.preset, slot, work);
+}
+function renderSetup() {
+  const w = setupWorkout(), N = w ? w.st.length : 0;
+  if (setup.b < 0 || setup.b >= N) setup.b = Math.max(0, N - 1);
+  if (setup.a >= N) setup.a = 0;
+  const opts = sel => w ? w.st.map((x, i) => `<option value="${i}" ${i === sel ? "selected" : ""}>${i + 1}. ${esc(x.n)}</option>`).join("") : "";
+  $("app").innerHTML = `
+    <header class="top"><h1>Race Sim Duo<small>Two phones, one race sim. Nothing is sent anywhere.</small></h1></header>
+    <section class="card">
+      <h2>Workout</h2>
+      <label class="f">Workout<select id="preset">
+        <option value="duo" ${setup.preset === "duo" ? "selected" : ""}>${esc(PRESETS.duo.name)}</option>
+        <option value="singles" ${setup.preset === "singles" ? "selected" : ""}>${esc(PRESETS.singles.name)}</option>
+        <option value="custom" ${setup.preset === "custom" ? "selected" : ""}>Paste a race sim from the club app…</option></select></label>
+      ${setup.preset === "custom" ? `<label class="f">Workout JSON<textarea id="json" placeholder='{"name": "…", "slot": "3:30", "stations": [ … ]}'>${esc(setup.json || "")}</textarea></label>
+        ${setup.err ? `<p class="note danger">${esc(setup.err)}</p>` : setup.custom ? `<p class="note">Loaded: ${esc(setup.custom.name)}, ${setup.custom.st.length} stations.</p>` : ""}` : ""}
+      <div class="row">
+        <label class="f">Switch every<input id="slot" inputmode="numeric" value="${esc(setup.slot)}"></label>
+        <label class="f">Work time<input id="work" inputmode="numeric" value="${esc(setup.work)}"></label>
+      </div>
+      ${w ? `<p class="note">${N} stations · ${fmt(total(w))} in total. The rest of each slot is for moving to the next station.</p>` : `<p class="note danger">Times must look like 3:30.</p>`}
+    </section>
+    <section class="card">
+      <h2>Athletes</h2>
+      <div class="row">
+        <label class="f"><span class="who" data-me="a"><span class="dot"></span>This phone</span><input id="na" maxlength="16" value="${esc(setup.na)}"></label>
+        <label class="f"><span class="who" data-me="b"><span class="dot"></span>Partner's phone</span><input id="nb" maxlength="16" value="${esc(setup.nb)}"></label>
+      </div>
+      <div class="row">
+        <label class="f">This phone starts at<select id="sa">${opts(setup.a)}</select></label>
+        <label class="f">Partner starts at<select id="sb">${opts(setup.b)}</select></label>
+      </div>
+      <div class="tools"><button class="ghost small" id="swap">Swap starts</button></div>
+      <p class="note">Default: one of you starts at the top, the other at the last station, so one runs while the other works.</p>
+    </section>
+    <section class="card">
+      <label class="f">Countdown before the start<select id="lead">
+        ${[30, 60, 120, 300].map(v => `<option value="${v}" ${v === setup.lead ? "selected" : ""}>${fmt(v)}</option>`).join("")}</select></label>
+      <button class="solid big" id="go" ${w && (setup.preset !== "custom" || setup.custom) ? "" : "disabled"}>Start</button>
+      <p class="note">After Start, this phone shows a QR code. Your partner scans it with the normal camera and lands in the same countdown.</p>
+    </section>
+    <p class="note">Joining your partner? Scan the QR code on their phone with your camera. ${S ? `<button class="ghost small" id="resume">Back to the last workout</button>` : ""}</p>`;
+  const bind = (id, k, ev = "change", f = v => v) => $(id)?.addEventListener(ev, e => { setup[k] = f(e.target.value); renderSetup(); });
+  bind("preset", "preset");
+  bind("slot", "slot"); bind("work", "work");
+  bind("sa", "a", "change", Number); bind("sb", "b", "change", Number);
+  bind("lead", "lead", "change", Number);
+  $("na").addEventListener("input", e => setup.na = e.target.value);
+  $("nb").addEventListener("input", e => setup.nb = e.target.value);
+  $("json")?.addEventListener("change", e => {
+    setup.json = e.target.value;
+    try { setup.custom = fromClubJson(setup.json); setup.err = ""; setup.slot = fmt(setup.custom.slot); setup.b = -1;
+      const tw = setup.custom.st.find(x => x.t); setup.work = fmt(tw ? tw.t : setup.custom.slot); }
+    catch (err) { setup.custom = null; setup.err = err.message || "That isn't valid JSON."; }
+    renderSetup();
+  });
+  $("swap").onclick = () => { [setup.a, setup.b] = [setup.b, setup.a]; renderSetup(); };
+  $("resume") && ($("resume").onclick = () => { route = "run"; render(); });
+  $("go").onclick = () => {
+    const w = setupWorkout(); if (!w) return;
+    unlock();
+    S = { t: Math.ceil((Date.now() + setup.lead * 1000) / 1000) * 1000, w, a: setup.a, b: setup.b,
+      na: setup.na.trim() || "A", nb: setup.nb.trim() || "B", me: "a", off: 0, mine: {}, theirs: null, ended: false, host: true };
+    // Keep exactly what the partner's phone will get from the link, so both phones hold the same data.
+    S.w = unpackLink(packLink(S)).w;
+    save(); route = "run"; render(); showJoinQr();
+  };
+}
+
+// ---- Run screen (both phones) ----
+let route = "run", lastKey = "", cur = null; // cur: station index the counter edits when it isn't the current one
+function renderRun() {
+  const s = S, me = s.me, them = other(me), t = now(), a = where(s, me, t), b = where(s, them, t);
+  const ended = s.ended || a.phase === "done";
+  const p = cur ?? a.p, st = s.w.st[p], val = s.mine[p] || 0;
+  const head = a.phase === "wait" ? "Starts in" : a.phase === "work" ? "Now" : a.phase === "move" ? "Move" : "Done";
+  const title = a.phase === "move" ? `Go to ${a.next}` : a.phase === "done" ? "All stations finished" : s.w.st[a.p].n;
+  const sub = a.phase === "wait" ? `Your first station: ${s.w.st[a.p].n}` : a.phase === "work" ? `Then: ${a.next}` : a.phase === "move" ? `Slot ${a.k + 2} of ${s.w.st.length} starts when the clock hits 0` : "";
+  const partner = b.phase === "wait" ? `starts at ${s.w.st[b.p].n}` : b.phase === "done" ? "finished" : b.phase === "move" ? `moving to ${b.next}` : `on ${s.w.st[b.p].n}`;
+  $("app").innerHTML = `
+    <header class="top" data-me="${me}"><h1 class="run-h1">${esc(s.w.name)}<small><span class="who"><span class="dot"></span>${esc(nameOf(s, me))}</span> · slot ${Math.min(a.k + 1, s.w.st.length)} of ${s.w.st.length}</small></h1>
+      <span class="clock" id="clk"></span></header>
+    ${ended && s.ended && a.phase !== "done" ? `<p class="note">You ended this workout early.</p>` : ""}
+    <section class="now ${ended ? "" : a.phase}" data-me="${me}" id="nowBox" aria-live="polite">
+      <span class="lbl">${head}</span><span class="st">${esc(title)}</span>
+      ${a.phase === "done" ? "" : `<span class="t" id="left">${fmt(Math.ceil(a.left))}</span>`}
+      ${sub ? `<span class="sub">${esc(sub)}</span>` : ""}
+    </section>
+    <section class="lines">
+      <div class="line" data-me="${them}"><span class="l">Partner</span><span class="who"><span class="dot"></span><b>${esc(nameOf(s, them))}</b></span><span>${esc(partner)}</span></div>
+    </section>
+    ${a.phase === "wait" ? "" : `<section class="card counter" data-me="${me}">
+      <div class="top"><h2>${esc(st.n)}</h2>${cur !== null ? `<button class="ghost small" id="follow">Back to now</button>` : ""}</div>
+      <div class="cval" aria-live="polite">${val}<small>${esc(st.u)}</small></div>
+      <div class="steps">${stepsOf(st).map(v => `<button data-add="${v}" aria-label="Add ${v} ${esc(st.u)}">+${v}</button>`).join("")}<button class="undo" id="undo" ${undoStack.length ? "" : "disabled"}>Undo</button></div>
+    </section>`}
+    <section class="tools">
+      ${s.host ? `<button class="ghost small" id="joinQr">Partner's QR</button>` : ""}
+      <button class="ghost small" id="clockQr">Show clock QR</button>
+      <button class="ghost small" id="clockScan">Check clocks</button>
+      <button class="ghost small" id="results">Results</button>
+    </section>
+    ${s.off ? `<p class="note">Clock matched to your partner's phone (this phone was ${(Math.abs(s.off) / 1000).toFixed(1)} s ${s.off > 0 ? "ahead" : "behind"}).</p>` : ""}
+    <section class="tools"><button class="ghost small danger" id="end">${ended ? "New workout" : "End workout"}</button></section>`;
+  tickClock();
+  document.querySelectorAll("[data-add]").forEach(btn => btn.onclick = () => add(p, +btn.dataset.add));
+  $("undo") && ($("undo").onclick = undo);
+  $("follow") && ($("follow").onclick = () => { cur = null; render(); });
+  $("joinQr") && ($("joinQr").onclick = showJoinQr);
+  $("clockQr").onclick = showClockQr;
+  $("clockScan").onclick = () => scan("clock");
+  $("results").onclick = () => { route = "results"; render(); };
+  $("end").onclick = () => {
+    if (ended) { if (confirm("Start a new workout? This workout's counts are deleted from this phone.")) { S = null; save(); localStorage.removeItem(KEY); route = "setup"; render(); } return; }
+    if (confirm("End the workout now? Your counts stay and you go to the results.")) { S.ended = true; save(); route = "results"; render(); }
+  };
+}
+let undoStack = [];
+function add(p, v) { S.mine[p] = (S.mine[p] || 0) + v; undoStack.push([p, v]); save(); render(); }
+function undo() { const u = undoStack.pop(); if (!u) return; S.mine[u[0]] = Math.max(0, (S.mine[u[0]] || 0) - u[1]); save(); render(); }
+
+// ---- Results ----
+function renderResults() {
+  const s = S, me = s.me, them = other(me), mine = s.mine, theirs = s.theirs;
+  const order = s.w.st.map((x, i) => i);
+  $("app").innerHTML = `
+    <header class="top"><h1>Results<small>${esc(s.w.name)}</small></h1><button class="ghost small" id="back">Back</button></header>
+    <section class="card">
+      <table><thead><tr><th>Station</th><th class="n" data-me="${me}"><span class="who"><span class="dot"></span>${esc(nameOf(s, me))}</span></th>
+        ${theirs ? `<th class="n" data-me="${them}"><span class="who"><span class="dot"></span>${esc(nameOf(s, them))}</span></th>` : ""}</tr></thead>
+      <tbody>${order.map(i => { const x = s.w.st[i]; return `<tr><td>${esc(x.n)} <span class="note">${esc(x.u)}</span></td>
+        <td class="n"><input type="number" inputmode="numeric" min="0" data-edit="${i}" value="${mine[i] || 0}" aria-label="${esc(x.n)}, ${esc(x.u)}"></td>
+        ${theirs ? `<td class="n">${theirs[i] ?? "–"}</td>` : ""}</tr>`; }).join("")}</tbody></table>
+      <p class="note">You can correct your own numbers here.</p>
+    </section>
+    <section class="card">
+      <h2>Swap results</h2>
+      <p class="note">One phone shows its results QR, the other scans it. Then both numbers sit side by side here.</p>
+      <div class="tools"><button class="solid" id="resQr">Show my results QR</button><button class="ghost" id="resScan">Scan partner's results</button></div>
+      <button class="ghost" id="share">Share as text</button>
+    </section>`;
+  $("back").onclick = () => { route = "run"; render(); };
+  document.querySelectorAll("[data-edit]").forEach(inp => inp.onchange = () => { S.mine[inp.dataset.edit] = Math.max(0, Math.round(+inp.value || 0)); save(); });
+  $("resQr").onclick = showResultsQr;
+  $("resScan").onclick = () => scan("results");
+  $("share").onclick = shareText;
+}
+function resultsText() {
+  const s = S, them = other(s.me);
+  const lines = s.w.st.map((x, i) => `${x.n}: ${s.mine[i] || 0}${s.theirs ? ` / ${s.theirs[i] ?? "–"}` : ""} ${x.u}`);
+  const d = new Date(s.t);
+  return `${s.w.name} · ${d.toLocaleDateString()}\n${nameOf(s, s.me)}${s.theirs ? ` / ${nameOf(s, them)}` : ""}\n${lines.join("\n")}`;
+}
+async function shareText() {
+  const text = resultsText();
+  try { if (navigator.share) { await navigator.share({ text }); return; } } catch (e) { if (e && e.name === "AbortError") return; }
+  try { await navigator.clipboard.writeText(text); alert("Results copied."); } catch { prompt("Copy the results:", text); }
+}
+
+// ---- QR codes ----
+function drawQr(canvas, text, ec = "L") {
+  const q = qrcode(0, ec); q.addData(text); q.make();
+  const n = q.getModuleCount(), quiet = 4, scale = Math.max(2, Math.floor(600 / (n + quiet * 2))), size = (n + quiet * 2) * scale;
+  if (canvas.width !== size) { canvas.width = size; canvas.height = size; }
+  const g = canvas.getContext("2d"); g.fillStyle = "#fff"; g.fillRect(0, 0, size, size); g.fillStyle = "#000";
+  for (let r = 0; r < n; r++) for (let c = 0; c < n; c++) if (q.isDark(r, c)) g.fillRect((c + quiet) * scale, (r + quiet) * scale, scale, scale);
+}
+let ovTimer = null, ovClose = null;
+function openOv(html, onClose) {
+  closeOv(); $("ovBody").innerHTML = html; $("ov").hidden = false; ovClose = onClose || null;
+  $("ovBody").querySelector("[data-close]")?.addEventListener("click", closeOv);
+}
+function closeOv() {
+  clearInterval(ovTimer); ovTimer = null;
+  const f = ovClose; ovClose = null; f && f();
+  $("ov").hidden = true; $("ovBody").innerHTML = "";
+}
+function showJoinQr() {
+  const link = packLink(S);
+  openOv(`<h2>Partner joins here</h2>
+    <p class="note">${esc(nameOf(S, "b"))}: open the camera and scan this code. Your phone opens the same workout and countdown.</p>
+    <div class="qrbox"><canvas id="qr" aria-label="QR code with the workout link"></canvas></div>
+    <p class="big-msg" id="qrCount"></p>
+    <div class="tools"><button class="ghost" id="copyLink">Copy link</button><button class="solid" data-close>Done</button></div>`);
+  drawQr($("qr"), link, "L");
+  const upd = () => { const a = where(S, "a", now()); $("qrCount").textContent = a.phase === "wait" ? `Start in ${fmt(Math.ceil(a.left))}` : "Already running · late joins are fine"; };
+  upd(); ovTimer = setInterval(upd, 250);
+  $("copyLink").onclick = async () => { try { await navigator.clipboard.writeText(link); $("copyLink").textContent = "Copied"; } catch { prompt("Copy the link:", link); } };
+}
+// The clock QR: this phone's time, redrawn every 100 ms. The scanning phone compares it with its own clock.
+function showClockQr() {
+  openOv(`<h2>Clock check</h2>
+    <p class="note">On the other phone tap <b>Check clocks</b> and point it at this code. Keep this screen bright.</p>
+    <div class="qrbox"><canvas id="qr" aria-label="QR code with this phone's clock"></canvas></div>
+    <button class="solid" data-close>Done</button>`);
+  const draw = () => drawQr($("qr"), "RSD1C:" + Math.round(now()), "L");
+  draw(); ovTimer = setInterval(draw, 100);
+}
+function showResultsQr() {
+  const vals = S.w.st.map((x, i) => S.mine[i] || 0).join(".");
+  openOv(`<h2>My results</h2>
+    <p class="note">On your partner's phone open Results and tap <b>Scan partner's results</b>.</p>
+    <div class="qrbox"><canvas id="qr" aria-label="QR code with your results"></canvas></div>
+    <button class="solid" data-close>Done</button>`);
+  drawQr($("qr"), `RSD1R:${S.t.toString(36)}:${S.me}:${vals}`, "M");
+}
+
+// ---- Camera scanner (for the clock check and results). BarcodeDetector where the browser has it,
+// otherwise jsQR (iPhone), loaded only when needed. ----
+let jsQRReady = null;
+function loadJsQR() {
+  if (window.jsQR) return Promise.resolve();
+  return jsQRReady ||= new Promise((ok, bad) => { const sc = document.createElement("script"); sc.src = "vendor/jsQR.min.js"; sc.onload = ok; sc.onerror = bad; document.head.appendChild(sc); });
+}
+async function makeDetector() {
+  if ("BarcodeDetector" in window) {
+    try { if ((await BarcodeDetector.getSupportedFormats()).includes("qr_code")) { const d = new BarcodeDetector({ formats: ["qr_code"] }); return async v => (await d.detect(v))[0]?.rawValue || null; } } catch {}
+  }
+  await loadJsQR();
+  const c = document.createElement("canvas"), g = c.getContext("2d", { willReadFrequently: true });
+  return async v => {
+    const w = v.videoWidth, h = v.videoHeight; if (!w || !h) return null;
+    const k = Math.min(1, 640 / Math.max(w, h)); c.width = Math.round(w * k); c.height = Math.round(h * k);
+    g.drawImage(v, 0, 0, c.width, c.height);
+    const r = jsQR(g.getImageData(0, 0, c.width, c.height).data, c.width, c.height, { inversionAttempts: "dontInvert" });
+    return r ? r.data : null;
+  };
+}
+// A camera frame reaches the scanner a little after the other screen drew it; this is a rough allowance for that.
+const SCAN_LAG_MS = 60;
+async function scan(kind) {
+  let stream = null, stop = false;
+  openOv(`<h2>${kind === "clock" ? "Check clocks" : "Scan partner's results"}</h2>
+    <p class="note">${kind === "clock" ? "On the other phone tap <b>Show clock QR</b>, then point this camera at it." : "On the other phone tap <b>Show my results QR</b>, then point this camera at it."}</p>
+    <video id="cam" playsinline muted autoplay></video>
+    <p class="big-msg" id="scanMsg">Starting the camera…</p>
+    <button class="ghost" data-close>Cancel</button>`, () => { stop = true; stream && stream.getTracks().forEach(t => t.stop()); });
+  const msg = t => { const el = $("scanMsg"); if (el) el.textContent = t; };
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment", width: { ideal: 1280 } }, audio: false });
+    if (stop) { stream.getTracks().forEach(t => t.stop()); return; }
+    const v = $("cam"); v.srcObject = stream; await v.play();
+    const detect = await makeDetector();
+    msg("Looking for the code…");
+    const deltas = [];
+    while (!stop) {
+      const t0 = Date.now(); // this phone's raw clock when the frame is grabbed
+      let text = null; try { text = await detect(v); } catch {}
+      if (stop) break;
+      if (text && kind === "clock" && text.startsWith("RSD1C:")) {
+        const theirs = +text.slice(6); if (!Number.isFinite(theirs)) continue;
+        deltas.push(t0 - SCAN_LAG_MS - theirs);
+        msg(`Reading the clock… ${Math.min(100, Math.round(deltas.length / 12 * 100))}%`);
+        if (deltas.length >= 12) {
+          // Every reading is late by the camera and screen delay, never early, so the smallest is the closest.
+          const off = Math.round(Math.min(...deltas));
+          if (!S) break;
+          // Half a second either way doesn't matter for 3:30 slots; below that, keep this phone's own clock.
+          S.off = Math.abs(off) < 250 ? 0 : off; save();
+          closeOv(); render();
+          alert(Math.abs(off) < 250 ? "Clocks match. Nothing to change." : `Clocks were ${(Math.abs(off) / 1000).toFixed(1)} s apart. This phone now follows the other one.`);
+          return;
+        }
+      } else if (text && kind === "results" && text.startsWith("RSD1R:")) {
+        const [, id, who, vals] = text.split(":");
+        if (!S || id !== S.t.toString(36)) { msg("That's from a different workout."); await sleep(1200); continue; }
+        if (who === S.me) { msg("That's this phone's own results."); await sleep(1200); continue; }
+        S.theirs = vals.split(".").map(x => Math.max(0, Math.round(+x || 0))); save();
+        closeOv(); route = "results"; render(); return;
+      } else if (text) { msg("That's not the right code."); }
+      await sleep(kind === "clock" ? 30 : 120);
+    }
+  } catch (e) {
+    msg(e && e.name === "NotAllowedError" ? "The camera is blocked. Allow it for this site in the browser settings." : "The camera couldn't start on this phone.");
+  }
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+// ---- Cues at every change: flash, vibrate (Android), short beep (once sound is unlocked by a tap) ----
+let audio = null;
+function unlock() {
+  try { audio ||= new (window.AudioContext || window.webkitAudioContext)(); audio.resume(); } catch {}
+  wake();
+}
+function beep(high) {
+  if (!audio || audio.state !== "running") return;
+  const o = audio.createOscillator(), g = audio.createGain(), t = audio.currentTime;
+  o.frequency.value = high ? 1320 : 880; o.connect(g); g.connect(audio.destination);
+  g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.4, t + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, t + 0.35);
+  o.start(t); o.stop(t + 0.4);
+}
+function cue(phase) {
+  const box = $("nowBox"); if (box) { box.classList.remove("flash"); void box.offsetWidth; box.classList.add("flash"); }
+  try { navigator.vibrate && navigator.vibrate(phase === "work" ? [300, 100, 300] : [500]); } catch {}
+  beep(phase === "work");
+}
+// Keep the screen on while a workout is open.
+let wakeHeld = null;
+async function wake() {
+  if (!navigator.wakeLock || document.visibilityState !== "visible" || wakeHeld) return;
+  try { wakeHeld = await navigator.wakeLock.request("screen"); wakeHeld.addEventListener("release", () => wakeHeld = null); } catch {}
+}
+document.addEventListener("visibilitychange", () => { if (S && route !== "setup") wake(); });
+
+// ---- Ticking ----
+function tickClock() {
+  const el = $("clk"); if (!el) return;
+  const d = new Date(now()); el.textContent = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" });
+}
+function tick() {
+  if (!S || route !== "run") return;
+  const a = where(S, S.me, now()), key = `${a.phase}|${a.k}`;
+  if (key !== lastKey) {
+    const was = lastKey; lastKey = key;
+    // A new station: the counter follows the clock again and Undo starts fresh.
+    if (was && was.split("|")[1] !== String(a.k)) { cur = null; undoStack = []; }
+    render();
+    if (was && !S.ended && (a.phase === "work" || a.phase === "move" || a.phase === "done")) cue(a.phase);
+    return;
+  }
+  const left = $("left"); if (left) left.textContent = fmt(Math.ceil(a.left));
+  tickClock();
+}
+setInterval(tick, 200);
+
+function render() {
+  if (!S) route = "setup";
+  if (route === "setup") renderSetup();
+  else if (route === "results") renderResults();
+  else { const a = where(S, S.me, now()); lastKey = `${a.phase}|${a.k}`; renderRun(); }
+}
+
+// ---- Start: a join link wins over a saved workout, unless it's the same one ----
+function start() {
+  load();
+  const j = unpackLink(location.hash);
+  if (j) {
+    history.replaceState(null, "", location.pathname + location.search);
+    if (!S || S.t !== j.t) {
+      S = { ...j, me: "b", off: 0, mine: {}, theirs: null, ended: false, host: false }; save();
+    }
+    route = "run"; render();
+    // Sound and the screen lock need a tap on iPhone; ask for one.
+    openOv(`<h2>You're in</h2><p class="note">${esc(S.w.name)}. You are <b>${esc(nameOf(S, S.me))}</b>, first station <b>${esc(S.w.st[S.me === "a" ? S.a : S.b].n)}</b>.</p>
+      <button class="solid big" data-close>Ready</button>`, () => unlock());
+    return;
+  }
+  route = S ? "run" : "setup"; render();
+}
+document.addEventListener("pointerdown", () => { if (S && route !== "setup") unlock(); }, { once: true });
+start();
+if ("serviceWorker" in navigator && location.protocol === "https:") navigator.serviceWorker.register("sw.js").catch(() => {});
+// For tests: the schedule is a pure function.
+window.__raceSim = { where, packLink, unpackLink, fromClubJson, PRESETS };
+</script>
+</body></html>

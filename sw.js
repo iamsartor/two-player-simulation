@@ -1,6 +1,6 @@
 // Offline cache: after the first visit the app works with no connection (flight mode is fine).
 // Bump VERSION with every change so phones pick up the new files.
-const VERSION = "rsd-1";
+const VERSION = "rsd-2";
 const FILES = ["./", "index.html", "manifest.webmanifest", "icon-192.png", "icon-512.png", "apple-touch-icon.png",
   "vendor/qrcode.min.js", "vendor/jsQR.min.js", "fonts/fonts.css",
   "fonts/barlow-condensed-latin-600-normal.woff2", "fonts/barlow-condensed-latin-800-normal.woff2",
